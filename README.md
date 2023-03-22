@@ -2,7 +2,7 @@
 Stealing Browser History Through Side Channels
 
 ## Requirements
-Google Chrome v109 and Python 3
+Google Chrome v111 and Python 3
 
 ## Steps
 1. Delete Chrome history
