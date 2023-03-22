@@ -58,7 +58,7 @@
 				let count = 0, start = performance.now();
 				while(performance.now() - start < m_time) {
 					blob = await offscreenCan.convertToBlob();
-					count++; buff[0] = count;
+					buff[0]++;
 				}
 				return buff[0];
 			}

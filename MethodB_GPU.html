@@ -59,7 +59,7 @@
 				let count = 0, start = performance.now();
 				while(performance.now() - start < m_time) {
 					blob = await offscreenCan.convertToBlob();
-					count++; buff[0] = count;
+					buff[0]++;
 				}
 				return buff[0];
 			}
@@ -316,8 +316,8 @@
 				resultNode.innerText += "\n Attack Accuracy: " + (((true_count_visited + true_count_unvisited)/(visited_urls.length+unvisited_urls.length))*100).toFixed(0)+'%';
 				resultNode.innerText += "\n Calibration Time : " + (time_calibrate/1000).toFixed(3) + "s";
 				resultNode.innerText += "\n Test Time : " + (time_test/1000).toFixed(3) + "s";
-				resultNode.innerText += "\n state: " + states;
-				resultNode.innerText += "\n sweeps: " + sweeps;
+				//resultNode.innerText += "\n state: " + states;
+				//resultNode.innerText += "\n sweeps: " + sweeps;
 
 				//GPUStop();
 			}

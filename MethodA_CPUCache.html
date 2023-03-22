@@ -306,8 +306,7 @@
 				document.getElementById("res").innerText = '';
 				document.getElementById("visited-div").innerHTML = '';
 				document.getElementById("unvisited-div").innerHTML = '';
-				//resizeSets(); resizeWays();
-				CPUPrep();
+				resizeSets(); resizeWays(); CPUPrep();
 				resizeText(); shuffle(urls);
 				targetNode = document.getElementById('a0'); paramsTable = document.getElementById('tbl-params');
 				go_base();
@@ -423,8 +422,8 @@
 				resultNode.innerText += "\n Attack Accuracy: " + (((true_count_visited + true_count_unvisited)/(visited_urls.length+unvisited_urls.length))*100).toFixed(0)+'%';
 				resultNode.innerText += "\n Calibration Time : " + (time_calibrate/1000).toFixed(3) + "s";
 				resultNode.innerText += "\n Test Time : " + (time_test/1000).toFixed(3) + "s";
-				resultNode.innerText += "\n state: " + states;
-				resultNode.innerText += "\n sweeps: " + sweeps;
+				//resultNode.innerText += "\n state: " + states;
+				//resultNode.innerText += "\n sweeps: " + sweeps;
 
 				CPUStop();
 			}
